@@ -1,34 +1,50 @@
 import sqlite3
 
-from config import *
-from Loan import Loan
+from personmanager import PersonManager
+from debtmanager import DebtManager
 
-table_loans = {
-    'name':'loans',
-    'create':'create table if not exists loans(_id integer primary key,\
-                                               person text not null,\
-                                               description text,\
-                                               amount integer not null);',
-    'key_id':'_id',
-    'key_person':'person',
-    'key_description':'desc',
-    'key_amount':'amount'
-}
+DB_NAME = 'debtdb'
 
 class LoanManager():
+    
     def __init__(self):
-        self.connection = sqlite3.connect(DB_PATH)
-        self.connection.execute(table_loans['create'])
+        connection = sqlite3.connect(DB_NAME)
 
-    def close(self):
-        self.connection.close()
+        self.persons = PersonManager(connection)
+        self.debt = DebtManager(connection)
 
-    def save(self, loan):
-        self.connection.execute('insert into {table}({keys}) values(\
-        \'{person}\',\'{description}\',{amount});'.format(table=table_loans['name'],
-                                                          keys=table_loans['key_person'] + ',' +
-                                                               table_loans['key_description'] + ',' +
-                                                               table_loans['key_amount'],
-                                                          person=loan.person,
-                                                          description=loan.description,
-                                                          amount=loan.amount))
+    def addDebt(self, person, amount, description):
+        pid = self.persons.findPerson(person)
+
+        if pid == None:
+            pid = self.persons.append(person)
+
+        self.debt.append(pid, amount, description)
+
+    def listLoans(self, target):
+        if target == 'all':
+            persons = self.persons.getAllPersons()
+
+            for pid, name in persons:
+                amount = self.debt.getTotalAmount(pid)
+
+                print(name + ': ' + str(amount) + 'kr')
+        else:
+            pid = self.persons.findPerson(target)
+
+            for did, amount, desc in self.debt[pid]:
+                print(str(did) + ':' + str(amount) + ' ' + desc)
+
+    def clearDebt(self, person, debt):
+        pid = self.persons.findPerson(person)
+
+        if debt == 'all' and pid:
+            self.debt.clearAllDebt(pid)
+            del self.persons[pid]
+        else:
+            self.debt.clearDebt(debt, pid)
+
+if __name__ == '__main__':
+    db = Database()
+
+    db.addDebt('Bear', 300, 'pizza')
